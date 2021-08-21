@@ -2,89 +2,99 @@ const grid = document.querySelector('.grid')
 const resultDisplay = document.querySelector('.result')
 
 let result = 0;
-let invadersIntervalId
+let runningColumnIntervalId
 let currentShooterIndex = 202;
 const gridWidth = 15;
 const gridCount = 225;
-const invaderDimensions = {
-	height: 3,
-	width: 10
-}
 let goingRight = true;
 let currentInvaderIndex = 0;
+let maxEmptyCol = 3;
+let settedInvader = [];
+let runningColumnIntervalInMs = 5000;
 
-let invaderIndex = [];
-// position to currentInvaderIndex
-let invaderRemoved = [];
+let runningColumnRowMap = [];
 
 for (let i = 0; i < gridCount; i++) {
   const square = document.createElement('div')
   grid.appendChild(square)
 }
 
+const range = (min, max) => {
+  const arr = Array(max - min + 1)
+    .fill(0)
+    .map((_, i) => i + min);
+  return arr;
+}
+
 const squares = Array.from(document.querySelectorAll('.grid div'))
 
-function drawInvader() {
-	for (let i = 0; i < invaderDimensions.height; i++) {
-		for(let j = 0; j < invaderDimensions.width; j++) {
-			// console.log('inv', invaderRemoved);
+// function drawInvader() {
+// 	for (let i = 0; i < invaderDimensions.height; i++) {
+// 		for(let j = 0; j < invaderDimensions.width; j++) {
+// 			// console.log('inv', invaderRemoved);
 			
-			invaderIndex.push(currentInvaderIndex + (i * gridWidth) + j )
+// 			invaderIndex.push(currentInvaderIndex + (i * gridWidth) + j )
+// 		}
+// 	}
+// 	for(let i = 0; i < invaderIndex.length; i++) {
+// 		if (invaderRemoved.indexOf(i) !== - 1) continue;
+// 		squares[invaderIndex[i]].classList.add('invader')
+// 	}
+// }
+
+function addRunningColumn () {
+	const emptyGridCount = Math.ceil(Math.random() * maxEmptyCol);
+	const currentLine = range(0, 14)
+
+	for (let index = 0; index < emptyGridCount; index++) {
+		let randNum
+		do {
+			randNum = Math.round(Math.random() * (gridWidth - 1));
+		} while(currentLine.indexOf(randNum) === - 1)
+		currentLine.splice(randNum, 1)
+	}
+	runningColumnRowMap.unshift(currentLine)
+	drawRunningColumns()
+	runningColumnIntervalInMs -= 10
+}
+
+addRunningColumn()
+
+function removeColumns () {
+	// runningColumnRowMap.forEach((row, rowIdx) => {
+	// 	for(let i = 0; i < gridWidth; i++) {
+	// 		const rowAdjustment = rowIdx * gridWidth
+	// 		squares[rowAdjustment + 1].classList.remove('invader')
+	// 	}
+	// });
+	settedInvader.forEach(index => squares[index].classList.remove('invader'))
+}
+
+function drawRunningColumns () {
+	runningColumnRowMap.forEach((rowMap, rowIdx) => {
+		const rowAdjustment = rowIdx * gridWidth
+		for(let i = 0; i < gridWidth; i++) {
+			if(squares[rowAdjustment+1] === undefined) continue
+			if(rowMap.indexOf(i) !== -1) {
+				squares[rowAdjustment + i].classList.add('invader')
+				settedInvader.push(rowAdjustment + i)
+			} else {
+				squares[rowAdjustment + i].classList.remove('invader')
+			}
 		}
-	}
-	for(let i = 0; i < invaderIndex.length; i++) {
-		if (invaderRemoved.indexOf(i) !== - 1) continue;
-		squares[invaderIndex[i]].classList.add('invader')
-	}
-}
-
-drawInvader()
-
-function removeInvader() {
-	for(let i = 0; i < invaderIndex.length; i++) {
-		squares[invaderIndex[i]].classList.remove('invader')
-	}
-	invaderIndex = []
-}
-
-function moveInvaders() {
-	const isOnLeftWall = currentInvaderIndex % gridWidth === 0
-	const isOnRightWall = (currentInvaderIndex + invaderDimensions.width - 1) % gridWidth === gridWidth - 1
-	removeInvader()
-	if (isOnLeftWall) console.log(isOnLeftWall, 'leftWall');
-	if (isOnRightWall) console.log(isOnRightWall, 'rightwall');
-	
-
-	if ((isOnLeftWall && !goingRight) || (isOnRightWall && goingRight)) {
-		//move the invaders down
-		goingRight = !goingRight
-		currentInvaderIndex += gridWidth
-	} else if (goingRight) {
-		currentInvaderIndex += 1
-	} else {
-		currentInvaderIndex -= 1	
-	}
-
+	});
 	if (squares[currentShooterIndex].classList.contains('invader', 'shooter')) {
-    resultDisplay.innerHTML = 'GAME OVER'
-    clearInterval(invadersIntervalId)
-  }
-
-	if(currentInvaderIndex + (3 * gridWidth) > (squares.length)) {
 		resultDisplay.innerHTML = 'GAME OVER'
 		clearInterval(invadersIntervalId)
 	}
 
-  if (invaderRemoved.length === invaderDimensions.width * invaderDimensions.height) {
-    resultDisplay.innerHTML = 'YOU WIN'
-    clearInterval(invadersIntervalId)
-  }
 
-	drawInvader()
+	const rowLength = runningColumnRowMap.map(el => el.length)
+
+	console.log(rowLength)
 }
 
-invadersIntervalId = setInterval(moveInvaders, 600)
-
+runningColumnIntervalId = setInterval(addRunningColumn, runningColumnIntervalInMs)
 
 squares[currentShooterIndex].classList.add('shooter')
 
@@ -117,21 +127,36 @@ function shoot(e) {
 		}
 		squares[currentLaserIndex].classList.add('laser')
 
-		if (squares[currentLaserIndex].classList.contains('invader')) {
-			result += 1
-			resultDisplay.innerHTML = result
-			squares[currentLaserIndex].classList.remove('invader')
-			squares[currentLaserIndex].classList.remove('laser')
-			console.log(currentLaserIndex)
-			squares[currentLaserIndex].classList.add('boom')
+		if(!squares[currentLaserIndex - gridWidth] || squares[currentLaserIndex - gridWidth].classList.contains('invader')) {
 			clearInterval(laserId)
+			squares[currentLaserIndex].classList.add('invader')
+			settedInvader.push(currentLaserIndex)
+			squares[currentLaserIndex].classList.remove('laser')
+			squares[currentLaserIndex].classList.add('boom')
 			setTimeout(() => {
 				squares[currentLaserIndex].classList.remove('boom')	
 			}, 300);
 
-			// invaderRemoved.push(currentLaserIndex - currentInvaderIndex)
-			invaderRemoved.push(invaderIndex.indexOf(currentLaserIndex))
+			const currentRow = Math.floor(currentLaserIndex / gridWidth)
+			if(runningColumnRowMap[currentRow] === undefined) runningColumnRowMap[currentRow] = []
+			runningColumnRowMap[currentRow].push(currentLaserIndex % gridWidth)
 		}
+
+		runningColumnRowMap.forEach((row, rowIdx) => {
+			if (row.length === 15) {
+				row.forEach(col => {
+					squares[col].classList.add('boom')
+					setTimeout(() => {
+						squares[col].classList.remove('boom')
+					}, 300);
+				})
+				removeColumns()
+				runningColumnRowMap.splice(rowIdx, 1)
+				drawRunningColumns()
+				result += 100
+				resultDisplay.innerHTML = result
+			}
+		})
 	} 
 	switch (e.code) {
 		case 'Space':
